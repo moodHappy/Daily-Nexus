@@ -3,124 +3,143 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Daily Nexus - 全知仪表盘</title>
+    <title>Daily Nexus - 全知日历枢纽</title>
     <style>
-        :root {
-            --bg: #f5f5f7;
-            --card-bg: rgba(255, 255, 255, 0.9);
-            --text-main: #1d1d1f;
-            --text-muted: #86868b;
-            --accent: #0066cc;
-            --border: #e5e5ea;
-        }
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-            background-color: var(--bg);
-            color: var(--text-main);
-            margin: 0;
-            padding: 20px 15px;
-            -webkit-font-smoothing: antialiased;
-        }
-        /* 强制锁定横向宽度，适配移动端最佳阅读体验 */
-        .container {
-            max-width: 800px;
-            margin: 0 auto;
-        }
-        .header {
-            text-align: center;
-            margin-bottom: 30px;
-            padding-bottom: 20px;
-            border-bottom: 1px solid var(--border);
-        }
-        .header h1 { margin: 0 0 10px 0; font-size: 2rem; color: #1a252f; }
-        .header p { margin: 0; color: var(--text-muted); font-size: 0.9rem; }
+        :root { --bg: #f5f5f7; --text: #333; --muted: #888; --primary: #0066cc; --border: #e0e0e0; --card: #fff; }
+        body, html { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif; -webkit-font-smoothing: antialiased; background: var(--bg); margin: 0; padding: 0; color: var(--text); height: 100%; }
+        .container { max-width: 600px; margin: 0 auto; padding-bottom: 20px; }
         
-        .section {
-            background: var(--card-bg);
-            border: 1px solid var(--border);
-            border-radius: 16px;
-            padding: 20px;
-            margin-bottom: 25px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.02);
-            backdrop-filter: blur(10px);
-        }
-        .section-title {
-            font-size: 1.2rem;
-            color: var(--accent);
-            margin: 0 0 15px 0;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            border-bottom: 1px dashed var(--border);
-            padding-bottom: 10px;
-        }
+        .header-panel { text-align: center; padding: 35px 20px 20px 20px; border-bottom: 1px solid var(--border); background: var(--card); margin-bottom: 20px;}
+        .header-panel h1 { font-size: 2.2rem; font-weight: 800; margin: 0 0 8px 0; color: #1a252f; }
+        .header-panel p { margin: 0; font-size: 0.85rem; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); font-weight: 600;}
         
-        /* 英语学习区块 */
-        .word-title { font-size: 2rem; margin: 0 0 10px 0; text-transform: capitalize; color: #d35400; }
-        .word-meta { display: flex; flex-direction: column; gap: 8px; font-size: 0.95rem; }
-        .word-meta span { background: #f8f9fa; padding: 6px 12px; border-radius: 8px; border: 1px solid #eee; }
+        .controls { background: var(--bg); padding: 0 20px 15px 20px; display: flex; justify-content: center; align-items: center; gap: 10px; }
+        .control-btn { background: var(--primary); color: #fff; border: none; border-radius: 8px; padding: 8px 14px; font-size: 14px; cursor: pointer; font-weight: bold; transition: all 0.2s; }
+        .control-btn:active { opacity: 0.8; transform: scale(0.95); }
+        .select-box { padding: 6px 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 15px; background: #fff; outline: none; font-weight: bold; cursor: pointer; }
         
-        /* Wiki 区块 */
-        .wiki-item { margin-bottom: 15px; }
-        .wiki-item:last-child { margin-bottom: 0; }
-        .wiki-item a { text-decoration: none; color: var(--text-main); font-size: 1.1rem; display: block; margin-bottom: 5px; }
-        .wiki-item a:hover { color: var(--accent); }
-        .wiki-extract { font-size: 0.9rem; color: var(--text-muted); line-height: 1.5; }
+        .calendar-wrapper { background: var(--card); padding: 20px; margin: 0 15px 20px 15px; border-radius: 16px; box-shadow: 0 4px 15px rgba(0,0,0,0.03); }
+        .weekdays { display: grid; grid-template-columns: repeat(7, 1fr); text-align: center; font-weight: bold; font-size: 13px; color: var(--muted); margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px solid #f0f0f0; }
+        .days-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+        .day-cell { aspect-ratio: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; font-size: 16px; font-weight: 600; border-radius: 10px; cursor: pointer; position: relative; transition: all 0.2s; }
+        .day-cell.empty { visibility: hidden; }
+        .day-cell.has-news { color: var(--text); }
+        .day-cell.no-news { color: #ccc; }
+        .day-cell.selected { background: #eef5ff; border: 1px solid var(--primary); color: var(--primary); }
+        .day-cell.today { background: #f0f0f0; border: 1px solid #ddd; }
+        .dot { width: 5px; height: 5px; background-color: var(--primary); border-radius: 50%; position: absolute; bottom: 6px; display: none; }
+        .day-cell.has-news .dot { display: block; }
         
-        /* NASA 区块 */
-        .nasa-img { width: 100%; border-radius: 12px; margin-bottom: 15px; }
-        .nasa-desc { font-size: 0.9rem; color: var(--text-muted); line-height: 1.6; }
-        
-        /* RSS 区块 */
-        .rss-source { margin-bottom: 20px; }
-        .rss-source:last-child { margin-bottom: 0; }
-        .rss-name { font-size: 1rem; color: #2c3e50; margin: 0 0 10px 0; background: #ecf0f1; display: inline-block; padding: 4px 10px; border-radius: 6px; }
-        .rss-list { list-style: none; padding: 0; margin: 0; }
-        .rss-list li { margin-bottom: 8px; padding-left: 15px; position: relative; }
-        .rss-list li::before { content: "→"; position: absolute; left: 0; color: var(--accent); }
-        .rss-list a { text-decoration: none; color: var(--text-main); font-size: 0.95rem; }
-        .rss-list a:hover { color: var(--accent); text-decoration: underline; }
+        .feed-list { padding: 0 15px; display: flex; flex-direction: column; gap: 12px; }
+        .feed-item { background: var(--card); border-radius: 14px; padding: 18px; display: flex; align-items: center; text-decoration: none; color: var(--text); box-shadow: 0 2px 8px rgba(0,0,0,0.03); border-left: 4px solid var(--primary); transition: all 0.2s; }
+        .feed-item:active { transform: scale(0.98); background: #fafafa; }
+        .feed-time { font-size: 15px; font-weight: bold; color: var(--primary); font-family: monospace; }
+        .feed-title { font-size: 15px; font-weight: bold; color: #333; margin-left: 15px; flex: 1; }
+        .empty-state { text-align: center; padding: 40px 20px; color: var(--muted); font-size: 14px; background: var(--card); border-radius: 14px; border: 1px dashed #ccc;}
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="header">
-            <h1>Daily Nexus</h1>
-            <p>全知仪表盘 / 自动同步于: 2026-06-27 09:55</p>
-        </div>
-
-        <div class="section">
-            <h2 class="section-title">📚 Word of the Day</h2>
-            <h3 class="word-title">alacrity</h3>
-            <div class="word-meta">
-                <span>Def: Eagerness; liveliness; enthusiasm.</span>
-                <span>Ex: No example available.</span>
-                <span>Synonyms: avidity, eagerness, enthusiasm</span>
-                <span>Antonyms: apathy, disinclination, hesitance</span>
-            </div>
-        </div>
-
-        <div class="section">
-            <h2 class="section-title">🌌 World Photo</h2>
-            <img src="https://apod.nasa.gov/apod/image/2606/MilkyWaySeoulShingooLee800.jpg" class="nasa-img" alt="NASA Image">
-            <div style="font-weight: 600; margin-bottom: 10px;">Milky Way Urban Style</div>
-            <div class="nasa-desc">In a cosmic vista you can never see, the Milky Way arcs through the night above Seoul, South Korea. Remarkably, this urban night skyscape reveals our galaxy's faintly luminous central region and dark obscuring dust clouds in spite of the brilliant city lights. To overcome the extreme light pollution of the metropolitan area and record faint cosmic details, an infrared filter was used to capture the night scene in a single exposure. While the filter transmits predominately infrared light, it still passes some visible light to give the scene a natural appearance. The view is from Seoul's Ttukseom Hangang Park, with the Han River and a well lit railway bridge across the foreground. The 123 story Lotte World Tower looms in the distance, the tallest building in South Korea.</div>
-        </div>
-<div class="section"><h2 class="section-title">📡 Global RSS Radar</h2>
-            <div class="rss-source">
-                <h4 class="rss-name">BBC World</h4>
-                <ul class="rss-list">
-            <li><a href="https://www.bbc.co.uk/news/articles/ckg590wqxwpo?at_medium=RSS&at_campaign=rss" target="_blank">US conducts strikes on Iran after attack on cargo ship</a></li><li><a href="https://www.bbc.co.uk/news/articles/c39y79g7gzko?at_medium=RSS&at_campaign=rss" target="_blank">Venezuela earthquakes kill 920 people as families desperate for news</a></li><li><a href="https://www.bbc.co.uk/news/articles/c0jydyz8z6jo?at_medium=RSS&at_campaign=rss" target="_blank">Mother dies saving daughter in Venezuela earthquakes</a></li></ul></div>
-            <div class="rss-source">
-                <h4 class="rss-name">NYT World</h4>
-                <ul class="rss-list">
-            <li><a href="https://www.nytimes.com/live/2026/06/26/world/venezuela-earthquake" target="_blank">Venezuela Live Updates: Trump’s Vow to ‘Run’ Venezuela Is Tested After Quakes</a></li><li><a href="https://www.nytimes.com/2026/06/26/world/middleeast/strait-of-hormuz-iran-attack.html" target="_blank">U.S. Strikes Iran in Retaliation for Attack on Vessel in Strait of Hormuz</a></li><li><a href="https://www.nytimes.com/2026/06/26/world/europe/europe-heat-climate-change-politics.html" target="_blank">As Europe Sweats, Some Politicians Talk of Air-Conditioning, Not Climate Action</a></li></ul></div>
-            <div class="rss-source">
-                <h4 class="rss-name">NHK World</h4>
-                <ul class="rss-list">
-            </ul></div></div>
+    <div class="header-panel">
+        <h1>Daily Nexus</h1>
+        <p>全知日历枢纽</p>
     </div>
+    
+    <div class="container">
+        <div class="controls">
+            <button class="control-btn" id="prevBtn">&lt;</button>
+            <select class="select-box" id="yearSelect"></select>
+            <select class="select-box" id="monthSelect">
+                <option value="1">01月</option><option value="2">02月</option><option value="3">03月</option>
+                <option value="4">04月</option><option value="5">05月</option><option value="6">06月</option>
+                <option value="7">07月</option><option value="8">08月</option><option value="9">09月</option>
+                <option value="10">10月</option><option value="11">11月</option><option value="12">12月</option>
+            </select>
+            <button class="control-btn" id="nextBtn">&gt;</button>
+            <button class="control-btn" id="todayBtn">今日</button>
+        </div>
+
+        <div class="calendar-wrapper">
+            <div class="weekdays"><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span><span>日</span></div>
+            <div class="days-grid" id="daysGrid"></div>
+        </div>
+
+        <div class="feed-list" id="feedList"></div>
+    </div>
+
+    <script>
+        const archiveData = {"2026": {"6": {"27": [{"time": "10:05", "path": "2026/6/2026_6_27_1005.html", "title": "\ud83c\udf0d \u5168\u77e5\u65e5\u62a5\u5df2\u9001\u8fbe"}]}}};
+        const today = new Date();
+        let selectedYear = today.getFullYear();
+        let selectedMonth = today.getMonth() + 1;
+        let selectedDay = today.getDate();
+
+        const yearSelect = document.getElementById('yearSelect');
+        const monthSelect = document.getElementById('monthSelect');
+        const daysGrid = document.getElementById('daysGrid');
+        const feedList = document.getElementById('feedList');
+
+        function initDropdowns() {
+            const years = Object.keys(archiveData).map(Number).sort((a, b) => b - a);
+            if (!years.includes(selectedYear)) years.unshift(selectedYear);
+            years.forEach(y => {
+                const opt = document.createElement('option'); opt.value = y; opt.textContent = y + ' 年';
+                yearSelect.appendChild(opt);
+            });
+            yearSelect.value = selectedYear; monthSelect.value = selectedMonth;
+        }
+
+        function renderCalendar(year, month) {
+            daysGrid.innerHTML = '';
+            const firstDay = new Date(year, month - 1, 1).getDay();
+            const startDay = firstDay === 0 ? 7 : firstDay;
+            const daysInMonth = new Date(year, month, 0).getDate();
+            
+            for (let i = 1; i < startDay; i++) {
+                const empty = document.createElement('div'); empty.className = 'day-cell empty';
+                daysGrid.appendChild(empty);
+            }
+            
+            const monthData = (archiveData[year] && archiveData[year][month]) ? archiveData[year][month] : {};
+            
+            for (let day = 1; day <= daysInMonth; day++) {
+                const cell = document.createElement('div'); cell.className = 'day-cell'; cell.textContent = day;
+                const dot = document.createElement('div'); dot.className = 'dot'; cell.appendChild(dot);
+                
+                if (monthData[day] && monthData[day].length > 0) cell.classList.add('has-news'); else cell.classList.add('no-news');
+                if (year === today.getFullYear() && month === today.getMonth() + 1 && day === today.getDate()) cell.classList.add('today');
+                if (year === selectedYear && month === selectedMonth && day === selectedDay) cell.classList.add('selected');
+                
+                cell.addEventListener('click', () => {
+                    selectedYear = year; selectedMonth = month; selectedDay = day;
+                    renderCalendar(year, month); renderFeedList(year, month, day);
+                });
+                daysGrid.appendChild(cell);
+            }
+        }
+
+        function renderFeedList(year, month, day) {
+            feedList.innerHTML = '';
+            const monthData = (archiveData[year] && archiveData[year][month]) ? archiveData[year][month] : null;
+            const dayData = monthData ? monthData[day] : null;
+            
+            if (dayData && dayData.length > 0) {
+                dayData.forEach(item => {
+                    const a = document.createElement('a'); a.href = item.path; a.className = 'feed-item';
+                    a.innerHTML = `<span class="feed-time">${item.time}</span><span class="feed-title">${item.title}</span> ➔`;
+                    feedList.appendChild(a);
+                });
+            } else {
+                feedList.innerHTML = '<div class="empty-state">当日档案空空如也</div>';
+            }
+        }
+
+        yearSelect.addEventListener('change', (e) => { selectedYear = parseInt(e.target.value); renderCalendar(selectedYear, selectedMonth); });
+        monthSelect.addEventListener('change', (e) => { selectedMonth = parseInt(e.target.value); renderCalendar(selectedYear, selectedMonth); });
+        document.getElementById('prevBtn').addEventListener('click', () => { selectedMonth--; if (selectedMonth < 1) { selectedMonth = 12; selectedYear--; yearSelect.value = selectedYear; } monthSelect.value = selectedMonth; renderCalendar(selectedYear, selectedMonth); });
+        document.getElementById('nextBtn').addEventListener('click', () => { selectedMonth++; if (selectedMonth > 12) { selectedMonth = 1; selectedYear++; yearSelect.value = selectedYear; } monthSelect.value = selectedMonth; renderCalendar(selectedYear, selectedMonth); });
+        document.getElementById('todayBtn').addEventListener('click', () => { selectedYear = today.getFullYear(); selectedMonth = today.getMonth() + 1; selectedDay = today.getDate(); yearSelect.value = selectedYear; monthSelect.value = selectedMonth; renderCalendar(selectedYear, selectedMonth); renderFeedList(selectedYear, selectedMonth, selectedDay); });
+
+        initDropdowns(); renderCalendar(selectedYear, selectedMonth); renderFeedList(selectedYear, selectedMonth, selectedDay);
+    </script>
 </body>
 </html>
