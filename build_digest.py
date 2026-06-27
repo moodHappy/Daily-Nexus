@@ -32,7 +32,7 @@ def fetch_word_of_the_day():
             example = meanings.get("definitions", [])[0].get("example", "No example available.")
             synonyms = meanings.get("synonyms", [])[:3]
             antonyms = meanings.get("antonyms", [])[:3]
-            
+
             return {
                 "word": word,
                 "definition": definition,
@@ -48,10 +48,10 @@ def fetch_wiki_trending(now_utc):
     """只保留今日最热词条 (仅 Top 1)"""
     print("🔍 正在获取 Wikipedia 今日热门词条...")
     results = []
-    
+
     # 维基百科的数据有1天延迟，所以获取前一天的榜单作为“今日热门”
     target_date = now_utc - timedelta(days=1)
-    
+
     try:
         url = f"https://api.wikimedia.org/feed/v1/wikipedia/en/featured/{target_date.year}/{target_date.month:02d}/{target_date.day:02d}"
         headers = {'User-Agent': 'DailyNexusBot/1.0'}
@@ -59,7 +59,7 @@ def fetch_wiki_trending(now_utc):
         if res.status_code == 200:
             data = res.json()
             most_read = data.get("mostread", {}).get("articles", [])
-            
+
             # 过滤掉 Main Page，只提取第 1 个最热词条
             for item in most_read:
                 if item.get("normalizedtitle") != "Main Page":
@@ -71,25 +71,40 @@ def fetch_wiki_trending(now_utc):
                     break  # 找到第一个就停止
     except Exception as e:
         print(f"❌ Wiki获取失败: {e}")
-            
+
     return results
 
-def fetch_daily_world_photo():
-    """替换原NASA接口：获取带有生活与世界描述的图片 (使用Bing每日壁纸)"""
-    print("🌿 正在获取今日世界生活掠影...")
+def fetch_wiki_potd(now_utc):
+    """获取 Wikipedia 每日推荐图片 (Picture of the Day) 及深度解说"""
+    print("🖼️ 正在获取 Wikipedia 今日图片...")
+    target_date = now_utc - timedelta(days=1) # 保持与维基热词一致的延迟策略
+    
     try:
-        url = "https://www.bing.com/HPImageArchive.aspx?format=js&idx=0&n=1&mkt=en-US"
-        res = requests.get(url, timeout=15)
+        url = f"https://api.wikimedia.org/feed/v1/wikipedia/en/featured/{target_date.year}/{target_date.month:02d}/{target_date.day:02d}"
+        headers = {'User-Agent': 'DailyNexusBot/1.0'}
+        res = requests.get(url, headers=headers, timeout=10)
+        
         if res.status_code == 200:
             data = res.json()
-            image_data = data.get("images", [])[0]
-            return {
-                "title": image_data.get("title", "Glimpse of the World"),
-                "url": f"https://www.bing.com{image_data.get('url')}",
-                "explanation": image_data.get("copyright", "No description available.")
-            }
+            image_data = data.get("image", {})
+            
+            if image_data:
+                # 将缩略图 URL 中的 320px 替换为 1024px 获取更高清画质
+                img_url = image_data.get("thumbnail", {}).get("source", "").replace("320px", "1024px") 
+                if not img_url:
+                    img_url = image_data.get("image", {}).get("source", "")
+                
+                description = image_data.get("description", {}).get("text", "No description available.")
+                # 清理标题中带有的 "File:" 和下划线
+                title = image_data.get("title", "Wikipedia Picture of the Day").replace("File:", "").replace("_", " ")
+                
+                return {
+                    "title": title,
+                    "url": img_url,
+                    "explanation": description
+                }
     except Exception as e:
-        print(f"❌ 图片获取失败: {e}")
+        print(f"❌ Wiki 图片获取失败: {e}")
     return None
 
 def fetch_rss_feeds():
@@ -121,7 +136,7 @@ def save_daily_archive(word_data, wiki_data, photo_data, rss_data, now_obj):
     year_str, month_str = str(now_obj.year), str(now_obj.month)
     target_dir = os.path.join(BASE_DIR, year_str, month_str)
     os.makedirs(target_dir, exist_ok=True)
-    
+
     filename = f"{now_obj.year}_{now_obj.month}_{now_obj.day}_{now_obj.strftime('%H%M')}.html"
     html_path = os.path.join(target_dir, filename)
     now_str = now_obj.strftime("%Y-%m-%d %H:%M")
@@ -209,7 +224,7 @@ def save_daily_archive(word_data, wiki_data, photo_data, rss_data, now_obj):
     if photo_data:
         html += f"""
         <div class="section">
-            <h2 class="section-title">🌿 今日世界掠影 (Daily World Photo)</h2>
+            <h2 class="section-title">🌿 今日世界掠影 (Wiki POTD)</h2>
             <img src="{photo_data['url']}" class="photo-img" alt="World Image" loading="lazy">
             <div style="font-size: 1.1rem; font-weight: 600; margin-bottom: 10px; color:#1a252f;">{photo_data['title']}</div>
             <div class="photo-desc">{photo_data['explanation']}</div>
@@ -258,10 +273,10 @@ def generate_index():
                             day = parts[2]
                             time_str = f"{parts[3][:2]}:{parts[3][2:]}"
                             file_path = f"{year}/{month}/{file}"
-                            
+
                             if day not in archive_data[year][month]:
                                 archive_data[year][month][day] = []
-                                
+
                             archive_data[year][month][day].append({
                                 "time": time_str,
                                 "path": file_path,
@@ -269,7 +284,7 @@ def generate_index():
                             })
                     except:
                         pass
-                        
+
     json_data = json.dumps(archive_data)
 
     html_template = """<!DOCTYPE html>
@@ -426,15 +441,15 @@ def generate_index():
 if __name__ == "__main__":
     now_utc = datetime.now(timezone.utc)
     now_obj = datetime.now(TZ_UTC_8)
-    
-    # 依次抓取四大版块数据 (NASA 已替换为 World Photo)
+
+    # 依次抓取四大版块数据
     word_data = fetch_word_of_the_day()
     wiki_data = fetch_wiki_trending(now_utc)
-    photo_data = fetch_daily_world_photo()
+    photo_data = fetch_wiki_potd(now_utc)  # 修改为调用 Wiki POTD
     rss_data = fetch_rss_feeds()
-    
+
     # 1. 封印生成当天的历史档案页面
     save_daily_archive(word_data, wiki_data, photo_data, rss_data, now_obj)
-    
+
     # 2. 扫描所有历史文件，重新生成根目录的日历索引
     generate_index()
