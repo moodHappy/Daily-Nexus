@@ -2,7 +2,7 @@ name: Daily Nexus Compiler
 
 on:
   schedule:
-    - cron: '0 23 * * 1'  # 每天北京/东京时间早上 7/8 点自动生成全知日报
+    - cron: '0 23 * * 1'  # 每周北京/东京时间早上 7/8 点自动生成全知周报
   workflow_dispatch:
 
 jobs:
