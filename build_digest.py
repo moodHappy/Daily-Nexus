@@ -5,10 +5,11 @@ import feedparser
 from datetime import datetime, timezone, timedelta
 import random
 
+# ================= 配置区 =================
 BASE_DIR = "docs"
 TZ_UTC_8 = timezone(timedelta(hours=8))
 
-# 高阶英语词库池 (你可以随时在这里添加更多，或者改写代码去读取你的 EVP 词汇表文件)
+# 高阶英语词库池 (每次运行随机抽取一个)
 WORD_LIST = [
     "ephemeral", "serendipity", "obfuscate", "sagacious", "cacophony", "alacrity", "ineffable", "sonder", 
     "luminous", "eloquent", "resilience", "mellifluous", "quintessential", "paradigm", "ebullient",
@@ -17,9 +18,10 @@ WORD_LIST = [
     "labyrinth", "magnanimous", "nuance", "oxymoron", "panacea", "quixotic", "rhetoric", "stoic",
     "trepidation", "unilateral", "vindicate", "whimsical", "xenophobia", "yielding", "zenith"
 ]
+# ==========================================
 
 def fetch_word_of_the_day():
-    print("正在获取每日英语词汇...")
+    print("📚 正在获取每日英语词汇...")
     try:
         word = random.choice(WORD_LIST)
         res = requests.get(f"https://api.dictionaryapi.dev/api/v2/entries/en/{word}", timeout=10)
@@ -39,65 +41,58 @@ def fetch_word_of_the_day():
                 "antonyms": ", ".join(antonyms) if antonyms else "None"
             }
     except Exception as e:
-        print(f"词汇获取失败: {e}")
+        print(f"❌ 词汇获取失败: {e}")
     return None
 
 def fetch_wiki_trending(now_utc):
-    print("正在获取 Wikipedia 四大维度热门...")
+    """只保留今日最热词条"""
+    print("🔍 正在获取 Wikipedia 今日热门词条...")
     results = []
     
-    # 维基百科 API 的 mostread 接口支持精确到某一天。
-    # 我们利用时间偏移，精准获取这四个维度的数据。
-    dates = [
-        ("🔥 今日最热词条", now_utc - timedelta(days=1)),
-        ("📅 昨日最热", now_utc - timedelta(days=2)),
-        ("⏪ 一周最热 (上周同日)", now_utc - timedelta(days=7)),
-        ("🕰️ 年度热门 (去年同日)", now_utc - timedelta(days=365))
-    ]
+    # 维基百科的数据有1天延迟，所以获取前一天的榜单作为“今日热门”
+    target_date = now_utc - timedelta(days=1)
     
-    for label, d in dates:
-        try:
-            url = f"https://api.wikimedia.org/feed/v1/wikipedia/en/featured/{d.year}/{d.month:02d}/{d.day:02d}"
-            headers = {'User-Agent': 'DailyNexusBot/1.0'}
-            res = requests.get(url, headers=headers, timeout=10)
-            if res.status_code == 200:
-                data = res.json()
-                most_read = data.get("mostread", {}).get("articles", [])
-                
-                # 提取当天的第一名，跳过无意义的 Main Page
-                top_article = next((item for item in most_read if item.get("normalizedtitle") != "Main Page"), None)
-                
-                if top_article:
-                    results.append({
-                        "label": label,
-                        "title": top_article.get("normalizedtitle", ""),
-                        "extract": top_article.get("extract", ""),
-                        "url": top_article.get("content_urls", {}).get("desktop", {}).get("page", ""),
-                        "date_str": d.strftime("%Y-%m-%d")
-                    })
-        except Exception as e:
-            print(f"Wiki获取失败 {label}: {e}")
+    try:
+        url = f"https://api.wikimedia.org/feed/v1/wikipedia/en/featured/{target_date.year}/{target_date.month:02d}/{target_date.day:02d}"
+        headers = {'User-Agent': 'DailyNexusBot/1.0'}
+        res = requests.get(url, headers=headers, timeout=10)
+        if res.status_code == 200:
+            data = res.json()
+            most_read = data.get("mostread", {}).get("articles", [])
+            
+            # 提取当天的第一名，跳过无意义的首页 (Main Page)
+            top_article = next((item for item in most_read if item.get("normalizedtitle") != "Main Page"), None)
+            
+            if top_article:
+                results.append({
+                    "title": top_article.get("normalizedtitle", ""),
+                    "extract": top_article.get("extract", ""),
+                    "url": top_article.get("content_urls", {}).get("desktop", {}).get("page", "")
+                })
+    except Exception as e:
+        print(f"❌ Wiki获取失败: {e}")
             
     return results
 
 def fetch_nasa_apod():
-    print("正在获取 NASA 今日图片...")
+    print("🌌 正在获取 NASA 今日世界照片...")
     try:
+        # 使用 NASA 官方免费 DEMO_KEY
         url = "https://api.nasa.gov/planetary/apod?api_key=DEMO_KEY"
-        res = requests.get(url, timeout=10)
+        res = requests.get(url, timeout=15)
         if res.status_code == 200:
             data = res.json()
             return {
                 "title": data.get("title", "NASA Astronomy Picture"),
-                "url": data.get("url", ""),
+                "url": data.get("url", ""), # 图片链接
                 "explanation": data.get("explanation", "No description available.")
             }
     except Exception as e:
-        print(f"NASA获取失败: {e}")
+        print(f"❌ NASA获取失败: {e}")
     return None
 
 def fetch_rss_feeds():
-    print("正在聚合全球 RSS 新闻...")
+    print("📡 正在聚合全球 RSS 新闻...")
     feeds = {
         "BBC World": "http://feeds.bbci.co.uk/news/world/rss.xml",
         "NYT World": "https://rss.nytimes.com/services/xml/rss/nyt/World.xml",
@@ -117,10 +112,11 @@ def fetch_rss_feeds():
                 })
             results[name] = items
         except Exception as e:
-            print(f"RSS获取失败 {name}: {e}")
+            print(f"❌ RSS获取失败 {name}: {e}")
     return results
 
 def save_daily_archive(word_data, wiki_data, nasa_data, rss_data, now_obj):
+    """保存单独的每日数据页面"""
     year_str, month_str = str(now_obj.year), str(now_obj.month)
     target_dir = os.path.join(BASE_DIR, year_str, month_str)
     os.makedirs(target_dir, exist_ok=True)
@@ -153,17 +149,16 @@ def save_daily_archive(word_data, wiki_data, nasa_data, rss_data, now_obj):
         .word-title {{ font-size: 2.2rem; margin: 0 0 10px 0; text-transform: capitalize; color: #d35400; font-family: Georgia, serif; }}
         .word-meta {{ display: flex; flex-direction: column; gap: 8px; font-size: 0.95rem; }}
         .word-meta span {{ background: #f8f9fa; padding: 8px 12px; border-radius: 8px; border: 1px solid #eee; line-height: 1.4; }}
+        .word-meta b {{ color: #2c3e50; }}
         
         /* Wiki */
-        .wiki-item {{ margin-bottom: 22px; background: #fafafa; padding: 15px; border-radius: 10px; border-left: 4px solid var(--accent); }}
-        .wiki-item:last-child {{ margin-bottom: 0; }}
-        .wiki-label {{ font-size: 0.85rem; font-weight: bold; color: var(--accent); margin-bottom: 6px; display: block; text-transform: uppercase; letter-spacing: 0.5px; }}
-        .wiki-item a {{ text-decoration: none; color: var(--text-main); font-size: 1.15rem; font-weight: 600; display: block; margin-bottom: 8px; }}
-        .wiki-item a:hover {{ color: var(--accent); }}
+        .wiki-item {{ margin-bottom: 0; }}
+        .wiki-item a {{ text-decoration: none; color: var(--text-main); font-size: 1.25rem; font-weight: 700; display: block; margin-bottom: 8px; }}
+        .wiki-item a:hover {{ color: var(--accent); text-decoration: underline; }}
         .wiki-extract {{ font-size: 0.95rem; color: var(--text-muted); line-height: 1.6; text-align: justify; }}
         
         /* NASA */
-        .nasa-img {{ width: 100%; border-radius: 12px; margin-bottom: 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }}
+        .nasa-img {{ width: 100%; border-radius: 12px; margin-bottom: 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); background-color: #000; object-fit: cover; }}
         .nasa-desc {{ font-size: 0.95rem; color: var(--text-muted); line-height: 1.6; text-align: justify; }}
         
         /* RSS */
@@ -182,7 +177,7 @@ def save_daily_archive(word_data, wiki_data, nasa_data, rss_data, now_obj):
     <div class="container">
         <div class="header">
             <h1>Daily Nexus Archive</h1>
-            <p>归档日期: {now_str}</p>
+            <p>📅 归档日期: {now_str}</p>
         </div>
 """
 
@@ -192,21 +187,20 @@ def save_daily_archive(word_data, wiki_data, nasa_data, rss_data, now_obj):
             <h2 class="section-title">📚 Word of the Day</h2>
             <h3 class="word-title">{word_data['word']}</h3>
             <div class="word-meta">
-                <span>Definition: {word_data['definition']}</span>
-                <span>Example: <i>"{word_data['example']}"</i></span>
-                <span>Synonyms: {word_data['synonyms']}</span>
-                <span>Antonyms: {word_data['antonyms']}</span>
+                <span><b>Definition:</b> {word_data['definition']}</span>
+                <span><b>Example:</b> <i>"{word_data['example']}"</i></span>
+                <span><b>Synonyms:</b> {word_data['synonyms']}</span>
+                <span><b>Antonyms:</b> {word_data['antonyms']}</span>
             </div>
         </div>
 """
 
     if wiki_data:
-        html += """<div class="section"><h2 class="section-title">🔍 Wikipedia Hall of Fame</h2>"""
+        html += """<div class="section"><h2 class="section-title">🔍 Wikipedia 今日热门</h2>"""
         for item in wiki_data:
             html += f"""
             <div class="wiki-item">
-                <span class="wiki-label">{item['label']} (记录于 {item['date_str']})</span>
-                <a href="{item['url']}" target="_blank">{item['title']}</a>
+                <a href="{item['url']}" target="_blank">🔥 {item['title']}</a>
                 <div class="wiki-extract">{item['extract']}</div>
             </div>"""
         html += "</div>"
@@ -214,7 +208,7 @@ def save_daily_archive(word_data, wiki_data, nasa_data, rss_data, now_obj):
     if nasa_data:
         html += f"""
         <div class="section">
-            <h2 class="section-title">🌌 Astronomy Picture</h2>
+            <h2 class="section-title">🌌 今日世界照片 (NASA APOD)</h2>
             <img src="{nasa_data['url']}" class="nasa-img" alt="NASA Image" loading="lazy">
             <div style="font-size: 1.1rem; font-weight: 600; margin-bottom: 10px; color:#1a252f;">{nasa_data['title']}</div>
             <div class="nasa-desc">{nasa_data['explanation']}</div>
@@ -222,7 +216,7 @@ def save_daily_archive(word_data, wiki_data, nasa_data, rss_data, now_obj):
 """
 
     if rss_data:
-        html += """<div class="section"><h2 class="section-title">📡 Global News Aggregator</h2>"""
+        html += """<div class="section"><h2 class="section-title">📡 Global RSS Aggregator</h2>"""
         for source, items in rss_data.items():
             html += f"""
             <div class="rss-source">
@@ -242,11 +236,11 @@ def save_daily_archive(word_data, wiki_data, nasa_data, rss_data, now_obj):
 
     with open(html_path, "w", encoding="utf-8") as f:
         f.write(html)
-    print(f"每日数据已封印入库: {html_path}")
+    print(f"✅ 每日数据已封印入库: {html_path}")
 
 
 def generate_index():
-    print("正在重新编译全知日历枢纽...")
+    print("⚙️ 正在重新编译全知日历枢纽...")
     archive_data = {}
     if os.path.exists(BASE_DIR):
         years = [d for d in os.listdir(BASE_DIR) if d.isdigit()]
@@ -426,16 +420,20 @@ def generate_index():
     final_html = html_template.replace("{REPLACEME_JSON_DATA}", json_data)
     with open(os.path.join(BASE_DIR, "index.html"), "w", encoding="utf-8") as f:
         f.write(final_html)
-    print("主页日历枢纽 index.html 编译同步完成！")
+    print("🚀 主页日历枢纽 index.html 编译同步完成！")
 
 if __name__ == "__main__":
     now_utc = datetime.now(timezone.utc)
     now_obj = datetime.now(TZ_UTC_8)
     
+    # 依次抓取四大版块数据
     word_data = fetch_word_of_the_day()
     wiki_data = fetch_wiki_trending(now_utc)
     nasa_data = fetch_nasa_apod()
     rss_data = fetch_rss_feeds()
     
+    # 1. 封印生成当天的历史档案页面 (按 /年/月/ 目录存放)
     save_daily_archive(word_data, wiki_data, nasa_data, rss_data, now_obj)
+    
+    # 2. 扫描所有历史文件，重新生成根目录的日历索引
     generate_index()
