@@ -45,7 +45,7 @@ def fetch_word_of_the_day():
     return None
 
 def fetch_wiki_trending(now_utc):
-    """只保留今日最热词条，提取 Top 5"""
+    """只保留今日最热词条 (仅 Top 1)"""
     print("🔍 正在获取 Wikipedia 今日热门词条...")
     results = []
     
@@ -60,8 +60,7 @@ def fetch_wiki_trending(now_utc):
             data = res.json()
             most_read = data.get("mostread", {}).get("articles", [])
             
-            # 过滤掉 Main Page，提取前 5 个最热词条
-            count = 0
+            # 过滤掉 Main Page，只提取第 1 个最热词条
             for item in most_read:
                 if item.get("normalizedtitle") != "Main Page":
                     results.append({
@@ -69,9 +68,7 @@ def fetch_wiki_trending(now_utc):
                         "extract": item.get("extract", ""),
                         "url": item.get("content_urls", {}).get("desktop", {}).get("page", "")
                     })
-                    count += 1
-                    if count >= 5:  # 保留前5名
-                        break
+                    break  # 找到第一个就停止
     except Exception as e:
         print(f"❌ Wiki获取失败: {e}")
             
@@ -156,8 +153,7 @@ def save_daily_archive(word_data, wiki_data, photo_data, rss_data, now_obj):
         .word-meta b {{ color: #2c3e50; }}
         
         /* Wiki */
-        .wiki-item {{ margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px solid #f0f0f0; }}
-        .wiki-item:last-child {{ border-bottom: none; margin-bottom: 0; padding-bottom: 0; }}
+        .wiki-item {{ margin-bottom: 0; }}
         .wiki-item a {{ text-decoration: none; color: var(--text-main); font-size: 1.25rem; font-weight: 700; display: block; margin-bottom: 8px; }}
         .wiki-item a:hover {{ color: var(--accent); text-decoration: underline; }}
         .wiki-extract {{ font-size: 0.95rem; color: var(--text-muted); line-height: 1.6; text-align: justify; }}
@@ -202,10 +198,10 @@ def save_daily_archive(word_data, wiki_data, photo_data, rss_data, now_obj):
 
     if wiki_data:
         html += """<div class="section"><h2 class="section-title">🔍 Wikipedia 今日最热词条</h2>"""
-        for idx, item in enumerate(wiki_data, 1):
+        for item in wiki_data:
             html += f"""
             <div class="wiki-item">
-                <a href="{item['url']}" target="_blank">🔥 #{idx} {item['title']}</a>
+                <a href="{item['url']}" target="_blank">🔥 {item['title']}</a>
                 <div class="wiki-extract">{item['extract']}</div>
             </div>"""
         html += "</div>"
