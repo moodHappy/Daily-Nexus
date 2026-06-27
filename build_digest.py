@@ -74,21 +74,22 @@ def fetch_wiki_trending(now_utc):
             
     return results
 
-def fetch_nasa_apod():
-    print("🌌 正在获取 NASA 今日世界照片...")
+def fetch_daily_world_photo():
+    """替换原NASA接口：获取带有生活与世界描述的图片 (使用Bing每日壁纸)"""
+    print("🌿 正在获取今日世界生活掠影...")
     try:
-        # 使用 NASA 官方免费 DEMO_KEY
-        url = "https://api.nasa.gov/planetary/apod?api_key=DEMO_KEY"
+        url = "https://www.bing.com/HPImageArchive.aspx?format=js&idx=0&n=1&mkt=en-US"
         res = requests.get(url, timeout=15)
         if res.status_code == 200:
             data = res.json()
+            image_data = data.get("images", [])[0]
             return {
-                "title": data.get("title", "NASA Astronomy Picture"),
-                "url": data.get("url", ""), # 图片链接
-                "explanation": data.get("explanation", "No description available.")
+                "title": image_data.get("title", "Glimpse of the World"),
+                "url": f"https://www.bing.com{image_data.get('url')}",
+                "explanation": image_data.get("copyright", "No description available.")
             }
     except Exception as e:
-        print(f"❌ NASA获取失败: {e}")
+        print(f"❌ 图片获取失败: {e}")
     return None
 
 def fetch_rss_feeds():
@@ -115,7 +116,7 @@ def fetch_rss_feeds():
             print(f"❌ RSS获取失败 {name}: {e}")
     return results
 
-def save_daily_archive(word_data, wiki_data, nasa_data, rss_data, now_obj):
+def save_daily_archive(word_data, wiki_data, photo_data, rss_data, now_obj):
     """保存单独的每日数据页面"""
     year_str, month_str = str(now_obj.year), str(now_obj.month)
     target_dir = os.path.join(BASE_DIR, year_str, month_str)
@@ -157,9 +158,9 @@ def save_daily_archive(word_data, wiki_data, nasa_data, rss_data, now_obj):
         .wiki-item a:hover {{ color: var(--accent); text-decoration: underline; }}
         .wiki-extract {{ font-size: 0.95rem; color: var(--text-muted); line-height: 1.6; text-align: justify; }}
         
-        /* NASA */
-        .nasa-img {{ width: 100%; border-radius: 12px; margin-bottom: 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); background-color: #000; object-fit: cover; }}
-        .nasa-desc {{ font-size: 0.95rem; color: var(--text-muted); line-height: 1.6; text-align: justify; }}
+        /* Photo Block */
+        .photo-img {{ width: 100%; border-radius: 12px; margin-bottom: 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); background-color: #000; object-fit: cover; }}
+        .photo-desc {{ font-size: 0.95rem; color: var(--text-muted); line-height: 1.6; text-align: justify; background: #f8f9fa; padding: 12px; border-radius: 8px; border-left: 4px solid var(--accent); }}
         
         /* RSS */
         .rss-source {{ margin-bottom: 20px; }}
@@ -205,13 +206,13 @@ def save_daily_archive(word_data, wiki_data, nasa_data, rss_data, now_obj):
             </div>"""
         html += "</div>"
 
-    if nasa_data:
+    if photo_data:
         html += f"""
         <div class="section">
-            <h2 class="section-title">🌌 今日世界照片 (NASA APOD)</h2>
-            <img src="{nasa_data['url']}" class="nasa-img" alt="NASA Image" loading="lazy">
-            <div style="font-size: 1.1rem; font-weight: 600; margin-bottom: 10px; color:#1a252f;">{nasa_data['title']}</div>
-            <div class="nasa-desc">{nasa_data['explanation']}</div>
+            <h2 class="section-title">🌿 今日世界掠影 (Daily World Photo)</h2>
+            <img src="{photo_data['url']}" class="photo-img" alt="World Image" loading="lazy">
+            <div style="font-size: 1.1rem; font-weight: 600; margin-bottom: 10px; color:#1a252f;">{photo_data['title']}</div>
+            <div class="photo-desc">{photo_data['explanation']}</div>
         </div>
 """
 
@@ -426,14 +427,14 @@ if __name__ == "__main__":
     now_utc = datetime.now(timezone.utc)
     now_obj = datetime.now(TZ_UTC_8)
     
-    # 依次抓取四大版块数据
+    # 依次抓取四大版块数据 (NASA 被替换为 World Photo)
     word_data = fetch_word_of_the_day()
     wiki_data = fetch_wiki_trending(now_utc)
-    nasa_data = fetch_nasa_apod()
+    photo_data = fetch_daily_world_photo()
     rss_data = fetch_rss_feeds()
     
-    # 1. 封印生成当天的历史档案页面 (按 /年/月/ 目录存放)
-    save_daily_archive(word_data, wiki_data, nasa_data, rss_data, now_obj)
+    # 1. 封印生成当天的历史档案页面
+    save_daily_archive(word_data, wiki_data, photo_data, rss_data, now_obj)
     
     # 2. 扫描所有历史文件，重新生成根目录的日历索引
     generate_index()
