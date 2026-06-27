@@ -2,8 +2,8 @@ name: Daily Nexus Compiler
 
 on:
   schedule:
-    - cron: '0 23 * * *'  # 每天北京/东京时间早上自动拉取全网数据
-  workflow_dispatch:      # 保留手动触发开关
+    - cron: '0 23 * * *'  # 每天北京/东京时间早上 7/8 点自动生成全知日报
+  workflow_dispatch:
 
 jobs:
   build:
@@ -25,12 +25,15 @@ jobs:
           python -m pip install --upgrade pip
           pip install requests feedparser
 
-      - name: Compile Dashboard
+      - name: Compile Daily Archive
         run: python build_digest.py
 
-      - name: Sync Pages
+      - name: Sync Archives to Github
         run: |
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
+          
+          # 【关键】：追踪整个 docs 目录，包含每日新建的归档文件和更新的 index
           git add docs/
-          git diff --quiet && git diff --staged --quiet || (git commit -m "Nexus: Synchronized daily omni-digest" && git push)
+          
+          git diff --quiet && git diff --staged --quiet || (git commit -m "Nexus: Daily archive sealed and calendar updated" && git push)
