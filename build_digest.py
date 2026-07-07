@@ -78,26 +78,26 @@ def fetch_wiki_potd(now_utc):
     """获取 Wikipedia 每日推荐图片 (Picture of the Day) 及深度解说"""
     print("🖼️ 正在获取 Wikipedia 今日图片...")
     target_date = now_utc - timedelta(days=1) # 保持与维基热词一致的延迟策略
-    
+
     try:
         url = f"https://api.wikimedia.org/feed/v1/wikipedia/en/featured/{target_date.year}/{target_date.month:02d}/{target_date.day:02d}"
         headers = {'User-Agent': 'DailyNexusBot/1.0'}
         res = requests.get(url, headers=headers, timeout=10)
-        
+
         if res.status_code == 200:
             data = res.json()
             image_data = data.get("image", {})
-            
+
             if image_data:
                 # 将缩略图 URL 中的 320px 替换为 1024px 获取更高清画质
                 img_url = image_data.get("thumbnail", {}).get("source", "").replace("320px", "1024px") 
                 if not img_url:
                     img_url = image_data.get("image", {}).get("source", "")
-                
+
                 description = image_data.get("description", {}).get("text", "No description available.")
                 # 清理标题中带有的 "File:" 和下划线
                 title = image_data.get("title", "Wikipedia Picture of the Day").replace("File:", "").replace("_", " ")
-                
+
                 return {
                     "title": title,
                     "url": img_url,
@@ -368,13 +368,36 @@ def generate_index():
         const feedList = document.getElementById('feedList');
 
         function initDropdowns() {
-            const years = Object.keys(archiveData).map(Number).sort((a, b) => b - a);
-            if (!years.includes(selectedYear)) years.unshift(selectedYear);
-            years.forEach(y => {
-                const opt = document.createElement('option'); opt.value = y; opt.textContent = y + ' 年';
+            yearSelect.innerHTML = '';
+            let dataYears = Object.keys(archiveData).map(Number);
+            let generatedYears = [];
+            
+            // 自动生成前后50年跨度
+            for (let i = -10; i <= 40; i++) {
+                generatedYears.push(today.getFullYear() + i);
+            }
+            
+            // 合并并去重降序
+            let allYears = Array.from(new Set([...dataYears, ...generatedYears])).sort((a, b) => b - a);
+            
+            allYears.forEach(y => {
+                const opt = document.createElement('option'); 
+                opt.value = y; 
+                opt.textContent = y + ' 年';
                 yearSelect.appendChild(opt);
             });
-            yearSelect.value = selectedYear; monthSelect.value = selectedMonth;
+            
+            // 兜底保障
+            let hasSelectedYear = Array.from(yearSelect.options).some(opt => parseInt(opt.value) === selectedYear);
+            if (!hasSelectedYear) {
+                const opt = document.createElement('option');
+                opt.value = selectedYear; 
+                opt.textContent = selectedYear + ' 年';
+                yearSelect.insertBefore(opt, yearSelect.firstChild);
+            }
+            
+            yearSelect.value = selectedYear; 
+            monthSelect.value = selectedMonth;
         }
 
         function renderCalendar(year, month) {
@@ -422,13 +445,83 @@ def generate_index():
             }
         }
 
-        yearSelect.addEventListener('change', (e) => { selectedYear = parseInt(e.target.value); renderCalendar(selectedYear, selectedMonth); });
-        monthSelect.addEventListener('change', (e) => { selectedMonth = parseInt(e.target.value); renderCalendar(selectedYear, selectedMonth); });
-        document.getElementById('prevBtn').addEventListener('click', () => { selectedMonth--; if (selectedMonth < 1) { selectedMonth = 12; selectedYear--; yearSelect.value = selectedYear; } monthSelect.value = selectedMonth; renderCalendar(selectedYear, selectedMonth); });
-        document.getElementById('nextBtn').addEventListener('click', () => { selectedMonth++; if (selectedMonth > 12) { selectedMonth = 1; selectedYear++; yearSelect.value = selectedYear; } monthSelect.value = selectedMonth; renderCalendar(selectedYear, selectedMonth); });
-        document.getElementById('todayBtn').addEventListener('click', () => { selectedYear = today.getFullYear(); selectedMonth = today.getMonth() + 1; selectedDay = today.getDate(); yearSelect.value = selectedYear; monthSelect.value = selectedMonth; renderCalendar(selectedYear, selectedMonth); renderFeedList(selectedYear, selectedMonth, selectedDay); });
+        // ================= 核心修改：强制绑定渲染 =================
+        yearSelect.addEventListener('change', (e) => { 
+            selectedYear = parseInt(e.target.value); 
+            selectedMonth = parseInt(monthSelect.value);
+            
+            let maxDays = new Date(selectedYear, selectedMonth, 0).getDate();
+            if (selectedDay > maxDays) selectedDay = maxDays;
+            
+            renderCalendar(selectedYear, selectedMonth); 
+            renderFeedList(selectedYear, selectedMonth, selectedDay);
+        });
+        
+        monthSelect.addEventListener('change', (e) => { 
+            selectedYear = parseInt(yearSelect.value);
+            selectedMonth = parseInt(e.target.value); 
+            
+            let maxDays = new Date(selectedYear, selectedMonth, 0).getDate();
+            if (selectedDay > maxDays) selectedDay = maxDays;
+            
+            renderCalendar(selectedYear, selectedMonth); 
+            renderFeedList(selectedYear, selectedMonth, selectedDay);
+        });
+        
+        document.getElementById('prevBtn').addEventListener('click', () => { 
+            selectedMonth--; 
+            selectedYear = parseInt(yearSelect.value);
+            
+            if (selectedMonth < 1) { 
+                selectedMonth = 12; 
+                selectedYear--; 
+                yearSelect.value = selectedYear; 
+            } 
+            monthSelect.value = selectedMonth; 
+            
+            let maxDays = new Date(selectedYear, selectedMonth, 0).getDate();
+            if (selectedDay > maxDays) selectedDay = maxDays;
+            
+            renderCalendar(selectedYear, selectedMonth); 
+            renderFeedList(selectedYear, selectedMonth, selectedDay);
+        });
+        
+        document.getElementById('nextBtn').addEventListener('click', () => { 
+            selectedMonth++; 
+            selectedYear = parseInt(yearSelect.value);
+            
+            if (selectedMonth > 12) { 
+                selectedMonth = 1; 
+                selectedYear++; 
+                yearSelect.value = selectedYear; 
+            } 
+            monthSelect.value = selectedMonth; 
+            
+            let maxDays = new Date(selectedYear, selectedMonth, 0).getDate();
+            if (selectedDay > maxDays) selectedDay = maxDays;
+            
+            renderCalendar(selectedYear, selectedMonth); 
+            renderFeedList(selectedYear, selectedMonth, selectedDay);
+        });
+        
+        document.getElementById('todayBtn').addEventListener('click', () => { 
+            selectedYear = today.getFullYear(); 
+            selectedMonth = today.getMonth() + 1; 
+            selectedDay = today.getDate(); 
+            
+            let hasSelectedYear = Array.from(yearSelect.options).some(opt => parseInt(opt.value) === selectedYear);
+            if(!hasSelectedYear) initDropdowns();
+            
+            yearSelect.value = selectedYear; 
+            monthSelect.value = selectedMonth; 
+            
+            renderCalendar(selectedYear, selectedMonth); 
+            renderFeedList(selectedYear, selectedMonth, selectedDay); 
+        });
 
-        initDropdowns(); renderCalendar(selectedYear, selectedMonth); renderFeedList(selectedYear, selectedMonth, selectedDay);
+        initDropdowns(); 
+        renderCalendar(selectedYear, selectedMonth); 
+        renderFeedList(selectedYear, selectedMonth, selectedDay);
     </script>
 </body>
 </html>"""
