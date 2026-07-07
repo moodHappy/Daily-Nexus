@@ -250,12 +250,11 @@ def generate_index():
         body, html { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif; -webkit-font-smoothing: antialiased; background: var(--bg); margin: 0; padding: 0; color: var(--text); height: 100%; }
         .container { max-width: 800px; margin: 0 auto; padding-bottom: 20px; box-sizing: border-box; display: flex; flex-direction: column;}
         
-        .manual-fetch-bar { background: var(--card); padding: 12px 15px; display: flex; justify-content: flex-end; align-items: center; border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 20; box-shadow: 0 2px 10px rgba(0,0,0,0.02); }
-        .settings-btn { background: none; border: none; font-size: 20px; cursor: pointer; padding: 5px; }
-        
-        .header-panel { text-align: center; padding: 20px 20px 20px 20px; border-bottom: 1px solid var(--border); background: var(--card); margin-bottom: 20px;}
-        .header-panel h1 { font-size: 2.2rem; font-weight: 800; margin: 0 0 8px 0; color: #1a252f; }
+        .header-panel { position: relative; text-align: center; padding: 25px 20px 20px 20px; border-bottom: 1px solid var(--border); background: var(--card); margin-bottom: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.02);}
+        .header-panel h1 { font-size: 1.8rem; font-weight: 800; margin: 0 0 8px 0; color: #1a252f; }
         .header-panel p { margin: 0; font-size: 0.85rem; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); font-weight: 600;}
+        .settings-btn { position: absolute; right: 20px; top: 22px; background: none; border: none; font-size: 22px; cursor: pointer; padding: 5px; opacity: 0.7; transition: opacity 0.2s;}
+        .settings-btn:hover { opacity: 1; }
         
         .controls { background: var(--bg); padding: 0 20px 15px 20px; display: flex; justify-content: center; align-items: center; gap: 10px; }
         .control-btn { background: var(--primary); color: #fff; border: none; border-radius: 8px; padding: 8px 14px; font-size: 14px; cursor: pointer; font-weight: bold; transition: all 0.2s; }
@@ -307,10 +306,6 @@ def generate_index():
     <div id="loadingBar"></div>
     <div id="toastMsg" class="toast-msg"></div>
 
-    <div class="manual-fetch-bar">
-        <button class="settings-btn" onclick="openSettings()">⚙️</button>
-    </div>
-
     <div class="modal-overlay" id="settingsModal">
         <div class="modal-content">
             <h3 class="modal-title">本地配置中心</h3>
@@ -335,6 +330,7 @@ def generate_index():
     </div>
 
     <div class="header-panel">
+        <button class="settings-btn" onclick="openSettings()">⚙️</button>
         <h1>Daily Nexus</h1>
         <p>全知日历枢纽</p>
     </div>
@@ -633,7 +629,6 @@ def generate_index():
 </body>
 </html>"""
 
-    # 包装标识符插入 JSON，提供给 JS 的 substring 截取替换
     final_html = html_template.replace(
         "/*DATA_START*/{REPLACEME_JSON_DATA}/*DATA_END*/", 
         f"/*DATA_START*/{json_data}/*DATA_END*/"
