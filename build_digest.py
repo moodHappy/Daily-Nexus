@@ -1,4 +1,5 @@
 import os
+import sys
 import json
 import requests
 import feedparser
@@ -265,6 +266,7 @@ def generate_index():
             months = [d for d in os.listdir(os.path.join(BASE_DIR, year)) if d.isdigit()]
             for month in months:
                 archive_data[year][month] = {}
+                # 严格过滤只处理存在的 .html 文件
                 files = sorted([f for f in os.listdir(os.path.join(BASE_DIR, year, month)) if f.endswith('.html')], reverse=True)
                 for file in files:
                     try:
@@ -292,6 +294,10 @@ def generate_index():
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    
     <title>Daily Nexus - 全知日历枢纽</title>
     <style>
         :root { --bg: #f5f5f7; --text: #333; --muted: #888; --primary: #0066cc; --border: #e0e0e0; --card: #fff; }
@@ -372,12 +378,10 @@ def generate_index():
             let dataYears = Object.keys(archiveData).map(Number);
             let generatedYears = [];
             
-            // 自动生成前后50年跨度
             for (let i = -10; i <= 40; i++) {
                 generatedYears.push(today.getFullYear() + i);
             }
             
-            // 合并并去重降序
             let allYears = Array.from(new Set([...dataYears, ...generatedYears])).sort((a, b) => b - a);
             
             allYears.forEach(y => {
@@ -387,7 +391,6 @@ def generate_index():
                 yearSelect.appendChild(opt);
             });
             
-            // 兜底保障
             let hasSelectedYear = Array.from(yearSelect.options).some(opt => parseInt(opt.value) === selectedYear);
             if (!hasSelectedYear) {
                 const opt = document.createElement('option');
@@ -436,7 +439,10 @@ def generate_index():
             
             if (dayData && dayData.length > 0) {
                 dayData.forEach(item => {
-                    const a = document.createElement('a'); a.href = item.path; a.className = 'feed-item';
+                    const a = document.createElement('a'); 
+                    // 这里加入随机时间戳作为 Cache Buster，强行击穿本地缓存
+                    a.href = item.path + '?v=' + new Date().getTime(); 
+                    a.className = 'feed-item';
                     a.innerHTML = `<span class="feed-time">${item.time}</span><span class="feed-title">${item.title}</span> ➔`;
                     feedList.appendChild(a);
                 });
@@ -445,7 +451,6 @@ def generate_index():
             }
         }
 
-        // ================= 核心修改：强制绑定渲染 =================
         yearSelect.addEventListener('change', (e) => { 
             selectedYear = parseInt(e.target.value); 
             selectedMonth = parseInt(monthSelect.value);
@@ -532,13 +537,19 @@ def generate_index():
     print("🚀 主页日历枢纽 index.html 编译同步完成！")
 
 if __name__ == "__main__":
+    # 新增独立重构模式指令
+    if len(sys.argv) > 1 and sys.argv[1] == "--rebuild":
+        print("🔧 触发强制重构模式：仅重新编译并清理索引缓存...")
+        generate_index()
+        sys.exit(0)
+
     now_utc = datetime.now(timezone.utc)
     now_obj = datetime.now(TZ_UTC_8)
 
     # 依次抓取四大版块数据
     word_data = fetch_word_of_the_day()
     wiki_data = fetch_wiki_trending(now_utc)
-    photo_data = fetch_wiki_potd(now_utc)  # 修改为调用 Wiki POTD
+    photo_data = fetch_wiki_potd(now_utc)
     rss_data = fetch_rss_feeds()
 
     # 1. 封印生成当天的历史档案页面
